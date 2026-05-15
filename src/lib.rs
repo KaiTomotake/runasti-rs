@@ -85,7 +85,7 @@ unsafe fn enable_privilege(privilege_name: PCWSTR) -> Result<(), String> {
             GetLastError()
         }));
     }
-    let mut tp = TOKEN_PRIVILEGES {
+    let tp = TOKEN_PRIVILEGES {
         PrivilegeCount: 1,
         Privileges: [LUID_AND_ATTRIBUTES {
             Luid: luid,
@@ -96,7 +96,7 @@ unsafe fn enable_privilege(privilege_name: PCWSTR) -> Result<(), String> {
         AdjustTokenPrivileges(
             token_handle,
             FALSE,
-            &mut tp,
+            &tp,
             std::mem::size_of::<TOKEN_PRIVILEGES>() as u32,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
@@ -124,8 +124,10 @@ unsafe fn get_processid(process_name: [u16; 260]) -> Result<u32, String> {
         }));
     }
     let mut pid = 0;
-    let mut pe = PROCESSENTRY32W::default();
-    pe.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+    let mut pe = PROCESSENTRY32W {
+        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+        ..Default::default()
+    };
     if unsafe { Process32FirstW(snapshot_handle, &mut pe) } != FALSE {
         while unsafe { Process32NextW(snapshot_handle, &mut pe) } != FALSE {
             if pe.szExeFile == process_name {
@@ -266,15 +268,15 @@ unsafe fn start_ti() -> Result<u32, String> {
         )
     } != FALSE
     {
-        if status_buffer.dwCurrentState == SERVICE_STOPPED {
-            if unsafe { StartServiceW(service_handle, 0, std::ptr::null()) } == FALSE {
-                unsafe {
-                    CloseHandle(service_handle);
-                }
-                return Err(format!("StartService failed: {}", unsafe {
-                    GetLastError()
-                }));
+        if status_buffer.dwCurrentState == SERVICE_STOPPED
+            && unsafe { StartServiceW(service_handle, 0, std::ptr::null()) } == FALSE
+        {
+            unsafe {
+                CloseHandle(service_handle);
             }
+            return Err(format!("StartService failed: {}", unsafe {
+                GetLastError()
+            }));
         }
         if status_buffer.dwCurrentState == SERVICE_START_PENDING
             || status_buffer.dwCurrentState == SERVICE_STOP_PENDING
@@ -383,6 +385,7 @@ unsafe fn create_process(pid: u32, command_line: PWSTR) -> Result<(), String> {
     Ok(())
 }
 
+#[allow(clippy::missing_safety_doc)]
 pub unsafe fn runasti<T: ToString>(process_name: T) -> Result<(), String> {
     let mut process_name_wide: Vec<u16> = format!("\"{}\"", process_name.to_string())
         .encode_utf16()
