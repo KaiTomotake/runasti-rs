@@ -387,7 +387,8 @@ unsafe fn create_process(pid: u32, command_line: PWSTR) -> Result<(), String> {
 
 #[allow(clippy::missing_safety_doc)]
 pub unsafe fn runasti<T: ToString>(command_line: T) -> Result<(), String> {
-    let mut process_name_wide: Vec<u16> = command_line.to_string()
+    let mut process_name_wide: Vec<u16> = command_line
+        .to_string()
         .encode_utf16()
         .chain(std::iter::once(0))
         .collect();
